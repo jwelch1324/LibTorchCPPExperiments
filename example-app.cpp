@@ -1,5 +1,6 @@
 #include <torch/torch.h>
 #include "include/CPC.h"
+#include "include/FractalNet.h"
 #include <iostream>
 #include <memory>
 #include <numeric>
@@ -10,7 +11,7 @@ struct Net : public torch::nn::Module{
           // Construct and register two Linear submodules
           fc1 = register_module("fc1", torch::nn::Linear(3072, 64));
           fc2 = register_module("fc2", torch::nn::Linear(64,32));
-          fc3 = register_module("fc3", torch::nn::Linear(32,10));
+          fc3 = register_module("fc3", torch::nn::Linear(32,128));
      }
 
      //Implement the forward algorithm
@@ -48,14 +49,32 @@ int main() {
           0
      );
 
-     auto res = net->forward(torch::randn({2,3,256,256}));
-     std::cout << std::get<0>(res).sizes() << std::endl << std::get<1>(res).sizes()<<std::endl;
+     auto criterion = std::make_shared<RandomNoiseContrastiveLoss<LinearForecastFunction>>(
+          net->m_options.ar_unit_hidden_state_size(),
+          net->m_options.encoder_embedding_dim(),
+          net->Patches()
+     );
 
+     std::cout << (net->parameters(true).size()) << std::endl;
+     for(auto& it : net->children())
+     {
+          std::cout << it->name() << std::endl;
+     }
+
+     auto res = net->forward(torch::randn({2,3,256,256}));
+     auto enc = std::get<0>(res);
+     std::cout << torch::tensor({1,2});
+     auto cv = std::get<1>(res);
+     auto loss = criterion->forward(enc,cv);
+     loss.backward();
+     std::cout << std::get<0>(res).sizes() << std::endl << std::get<1>(res).sizes()<<std::endl;
      return 0;
 }
 
 int main2() {
      auto net = std::make_shared<Net>();
+     std::cout << net->parameters().size() << std::endl;
+     return 0;
      torch::Device device(torch::kCUDA);
      net->to(device);
      //Create a MNIST dataset
