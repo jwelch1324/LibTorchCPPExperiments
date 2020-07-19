@@ -169,6 +169,17 @@ struct ImageContrastivePredictiveCoder : public torch::nn::Module {
     ) : ImageContrastivePredictiveCoder(ImageContrastivePredictiveCoderOptions<EncoderType>(input_shape, patch_shape, encoder, patch_overlap_px, ar_unit_hidden_state_size, ar_unit_layers, encoder_embedding_dim))
     {}
 
+    ImageContrastivePredictiveCoder(
+        torch::ExpandingArray<3> input_shape,
+        torch::ExpandingArray<2> patch_shape,
+        EncoderType& encoder,
+        int patch_overlap_px,
+        int ar_unit_hidden_state_size = 128,
+        int ar_unit_layers = 1,   
+        int encoder_embedding_dim = 128
+    ) : ImageContrastivePredictiveCoder(ImageContrastivePredictiveCoderOptions<EncoderType>(input_shape, patch_shape, encoder.ptr(), patch_overlap_px, ar_unit_hidden_state_size, ar_unit_layers, encoder_embedding_dim))
+    {}
+
     ImageContrastivePredictiveCoder(const ImageContrastivePredictiveCoderOptions<EncoderType>& options_) : m_options(options_)
     {
         //We grab all these references here to make the code a little more readable down the line.
@@ -381,10 +392,10 @@ public:
 
         //These are the indicies in the list np.arange(batch_size*patch_size) which correspond to the actual
         //ground truth encodings that we are predicting and hence do not want as distractors.
-        auto gt_indices_in_bp = gt_indices + (num_patches*torch::arange(batch_size));
+        auto gt_indices_in_bp = gt_indices + (num_patches*torch::arange(batch_size)).to(device);
 
         //This is the list of indices into the [BP, E] ground truth tensor
-        auto bp_indexer = torch::arange(num_patches*batch_size).expand({batch_size,-1});
+        auto bp_indexer = torch::arange(num_patches*batch_size).expand({batch_size,-1}).to(device);
 
         //Mask of allowed distractors for each GT encoding
         auto distractor_chooser = bp_indexer != gt_indices_in_bp.unsqueeze(1);
